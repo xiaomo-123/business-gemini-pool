@@ -487,6 +487,7 @@ def check_proxy(proxy: str) -> bool:
         return False
     try:
         proxies = {"http": proxy, "https": proxy}
+        print(f"[DEBUG] 检测代理: {proxy}")
         resp = requests.get("https://www.google.com", proxies=proxies, 
                           verify=False, timeout=10)
         return resp.status_code == 200
@@ -1707,7 +1708,7 @@ def chat_completions():
                     account_idx, account = account_manager.get_next_account()
                     session, jwt, team_id = ensure_session_for_account(account_idx, account)
                     proxy = get_proxy()
-                    
+                    print(f"代理设置: {proxy}")
                     # 上传内联图片获取 fileId
                     for img in input_images:
                         uploaded_file_id = upload_inline_image_to_gemini(jwt, session, team_id, img, proxy)
@@ -2242,8 +2243,12 @@ def get_config():
 def update_config():
     """更新配置"""
     data = request.json or {}
+    
     if "proxy" in data:
+        # print("更新配置:", data["proxy"])
         account_manager.config["proxy"] = data["proxy"]
+        # 设置代理启用状态为True
+        account_manager.config["proxy_enabled"] = True
     if "log_level" in data:
         try:
             set_log_level(data["log_level"], persist=True)
