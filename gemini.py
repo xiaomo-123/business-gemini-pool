@@ -2247,8 +2247,8 @@ def update_config():
     if "proxy" in data:
         # print("更新配置:", data["proxy"])
         account_manager.config["proxy"] = data["proxy"]
-        # 设置代理启用状态为True
-        account_manager.config["proxy_enabled"] = True
+        # 根据代理是否为空设置启用状态
+        account_manager.config["proxy_enabled"] = bool(data["proxy"])
     if "log_level" in data:
         try:
             set_log_level(data["log_level"], persist=True)
