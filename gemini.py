@@ -1083,11 +1083,11 @@ def upload_inline_image_to_gemini(jwt: str, session_name: str, team_id: str,
 
 
 def stream_chat_with_images(jwt: str, sess_name: str, message: str, 
-                            proxy: str, team_id: str, file_ids: List[str] = None) -> ChatResponse:
+                            proxy: str, team_id: str, file_ids: List[str] = None, model_id: str = "gemini-3-pro-preview") -> ChatResponse:
     """发送消息并流式接收响应"""
     query_parts = [{"text": message}]
     request_file_ids = file_ids if file_ids else []
-    
+    print(f"model_id: {model_id}, file_ids: {request_file_ids}")
     body = {
         "configId": team_id,
         "additionalParams": {"token": "-"},
@@ -1098,7 +1098,7 @@ def stream_chat_with_images(jwt: str, sess_name: str, message: str,
             "fileIds": request_file_ids,
             "answerGenerationMode": "NORMAL",
             "assistGenerationConfig":{
-                "modelId":"gemini-3-pro-preview"
+                "modelId": model_id
             },
             "toolsSpec": {
                 "webGroundingSpec": {},
@@ -1596,7 +1596,8 @@ def chat_completions():
         messages = data.get('messages', [])
         prompts = data.get('prompts', [])  # 支持替代格式
         stream = data.get('stream', False)
-
+        modelid = data.get('model', 'gemini-enterprise')  # 默认模型
+        print(f"modelid: {modelid}")
         # 提取用户消息、图片和文件ID
         user_message = ""
         input_images = []
@@ -1682,7 +1683,7 @@ def chat_completions():
                     if uploaded_file_id:
                         gemini_file_ids.append(uploaded_file_id)
                 
-                chat_response = stream_chat_with_images(jwt, session, user_message, proxy, team_id, gemini_file_ids)
+                chat_response = stream_chat_with_images(jwt, session, user_message, proxy, team_id, gemini_file_ids,modelid)
             except (AccountRateLimitError, AccountAuthError, AccountRequestError) as e:
                 last_error = e
                 account_manager.mark_account_cooldown(account_idx, str(e), account_manager.generic_error_cooldown)
@@ -1715,7 +1716,7 @@ def chat_completions():
                         if uploaded_file_id:
                             gemini_file_ids.append(uploaded_file_id)
                     
-                    chat_response = stream_chat_with_images(jwt, session, user_message, proxy, team_id, gemini_file_ids)
+                    chat_response = stream_chat_with_images(jwt, session, user_message, proxy, team_id, gemini_file_ids,modelid)
                     break
                 except AccountRateLimitError as e:
                     last_error = e
@@ -1760,13 +1761,13 @@ def chat_completions():
 
         if stream:
             # 流式响应
-            def generate():
+            def generate(modelid):
                 chunk_id = f"chatcmpl-{uuid.uuid4().hex[:8]}"
                 chunk = {
                     "id": chunk_id,
                     "object": "chat.completion.chunk",
                     "created": int(time.time()),
-                    "model": "gemini-enterprise",
+                    "model": modelid,
                     "account_csesidx": used_account_csesidx,
                     "choices": [{
                         "index": 0,
@@ -1781,7 +1782,7 @@ def chat_completions():
                     "id": chunk_id,
                     "object": "chat.completion.chunk",
                     "created": int(time.time()),
-                    "model": "gemini-enterprise",
+                    "model": modelid,
                     "choices": [{
                         "index": 0,
                         "delta": {},
@@ -1791,14 +1792,14 @@ def chat_completions():
                 yield f"data: {json.dumps(end_chunk, ensure_ascii=False)}\n\n"
                 yield "data: [DONE]\n\n"
 
-            return Response(generate(), mimetype='text/event-stream')
+            return Response(generate(modelid), mimetype='text/event-stream')
         else:
-            # 非流式响应
+            # 非流式响应           
             response = {
                 "id": f"chatcmpl-{uuid.uuid4().hex[:8]}",
                 "object": "chat.completion",
                 "created": int(time.time()),
-                "model": "gemini-enterprise",
+                "model": modelid,
                 "account_csesidx": used_account_csesidx,
                 "choices": [{
                     "index": 0,
